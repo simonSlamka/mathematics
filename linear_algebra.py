@@ -1,6 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image
+from sklearn.datasets import load_iris
+from sklearn.preprocessing import StandardScaler
 
 # just the bare basics
 
@@ -158,6 +160,7 @@ def eigenvectors(mat):
             breakpoint()
             aug2 = np.concatenate((mat - lambdas[1] * np.eye(2), np.zeros((2, 1))), axis=1)
             # check if either of the augmented matrices contains multiples 
+
             return gaussian(aug1), gaussian(aug2)
 
 def plot_eigenvectors(mat):
@@ -180,29 +183,84 @@ def transformImg(img: str, mat):
     transImg.show()
 transformImg("test.png", O)
 plot_eigenvectors(O)
-eigenvalues, eigenvectors = eigenvalues(O), eigenvectors(O)
+eigvals, eigvects = eigenvalues(O), eigenvectors(O)
 def is_eigenvactor_valid(mat, eigv, eigval):
     Av = np.dot(mat, eigv)
     lambdav = eigval * eigv
     return np.allclose(Av, lambdav)
-for i in range(len(eigenvalues)):
-    if is_eigenvactor_valid(O, eigenvectors[i], eigenvalues[i]):
+for i in range(len(eigvals)):
+    if is_eigenvactor_valid(O, eigvects[i], eigvals[i]):
         print("eigenvectors understood!")
     else:
         print("eigenvectors not understood!")
         print(f"eigenvec: {eigenvectors[i]}")
 
+# mean
+def mean(x):
+    return sum(x) / len(x)
 
+# covariance
+def cov(x, y):
+    if len(x) != len(y):
+        raise ValueError("can't get cov of vects of diff lens")
+    else:
+        n = len(x)
+        xmean, ymean = mean(x), mean(y)
+        cov = sum((x[i] - xmean) * (y[i] - ymean) for i in range(n)) / (n - 1)
 
+        return cov
 
+# covariance matrix
+def cov_mat(data):
+    n = data.shape[1]
+    covMat = np.zeros((n, n))
 
-# print(np.linalg.det(A)) # determinant of a matrix (only for square matrices)
-# # inverse
-# print(np.linalg.inv(A)) # inverse of a matrix (only for square matrices)
-# print(np.around(A @ np.linalg.inv(A))) # identity matrix (rounded up due to floating point errors)
-# # trace
-# print(np.trace(A)) # trace of a matrix (sum of diagonal elements)
-# # norm
-# print(np.linalg.norm(A)) # norm of a matrix (square root of sum of squared elements)
-# # rank
-# print(np.linalg.matrix_rank(A)) # rank of a matrix (number of linearly independent rows/columns)
+    for i in range(n):
+        for j in range(n):
+            covMat[i, j] = cov(data[:, i], data[:, j])
+
+    return covMat
+
+# let's try this on the iris dataset from sklearn
+iris = load_iris()
+X = iris.data
+Xstd = StandardScaler().fit_transform(X)
+covMat = cov_mat(Xstd)
+if np.allclose(covMat, np.cov(Xstd.T)):
+    print("covariance matrix understood!")
+
+# PCA
+def pca(X):
+    X = StandardScaler().fit_transform(X)
+    covMat = cov_mat(X)
+    eigvals, eigvecs = np.linalg.eig(covMat)
+    k = 3
+    idx = eigvals.argsort()[::-1]
+    eigvals = eigvals[idx]
+    eigvecs = eigvecs[:, idx]
+    eigvecs = eigvecs[:, :k]
+
+    Xpca = np.dot(X, eigvecs)
+
+    plt.figure(figsize=(8, 8))
+    plt.scatter(Xpca[:, 0], Xpca[:, 1])
+    plt.xlabel(f"PC1 ({eigvals[0] / sum(eigvals) * 100:.2f}%)")
+    plt.ylabel(f"PC2 ({eigvals[1] / sum(eigvals) * 100:.2f}%)")
+    plt.grid()
+    plt.show()
+
+    # scree
+    totVar = sum(eigvals)
+    varExpl = [(i / totVar) for i in sorted(eigvals, reverse=True)]
+    cumVarExpl = np.cumsum(varExpl)
+
+    plt.figure(figsize=(8, 8))
+    plt.bar(range(1, len(varExpl) + 1), varExpl, alpha=0.5, align="center", label="individual explained variance")
+    plt.step(range(1, len(cumVarExpl) + 1), cumVarExpl, where="mid", label="cumulative explained variance")
+    plt.ylabel("Explained variance ratio")
+    plt.xlabel("Principal components")
+    plt.legend(loc="best")
+    plt.tight_layout()
+    plt.show()
+
+pca(X)
