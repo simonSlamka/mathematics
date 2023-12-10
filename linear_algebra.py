@@ -181,7 +181,7 @@ def transformImg(img: str, mat):
     trans = np.real(trans)
     transImg = Image.fromarray(trans)
     transImg.show()
-transformImg("test.png", O)
+# transformImg("test.png", O)
 plot_eigenvectors(O)
 eigvals, eigvects = eigenvalues(O), eigenvectors(O)
 def is_eigenvactor_valid(mat, eigv, eigval):
@@ -196,7 +196,7 @@ for i in range(len(eigvals)):
         print(f"eigenvec: {eigenvectors[i]}")
 
 # mean
-def mean(x):
+def mean(x): # average
     return sum(x) / len(x)
 
 # covariance
@@ -264,3 +264,70 @@ def pca(X):
     plt.show()
 
 pca(X)
+
+
+def median(x): # middle value
+    n = len(x)
+    x = sorted(x)
+    if n % 2 == 0:
+        return (x[n // 2 - 1] + x[n // 2]) / 2
+    else:
+        return x[n // 2]
+
+def mode(x): # most frequent value
+    x = sorted(x)
+    return max(set(x), key=x.count)
+
+def variance(x): # how spread out the data is
+    n = len(x)
+    xmean = mean(x)
+    var = sum((x[i] - xmean) ** 2 for i in range(n)) / (n - 1)
+    return var
+
+def std(x): # not *that* std. this std is the square root of the variance
+    return np.sqrt(variance(x))
+
+
+# linear regression
+# Mark's monthly savings
+x = np.array([1, 2, 3, 4, 5, 6, 7, 8]) # Jan to Aug
+y = np.array([124, 164, 852, 593, 921, 109, 102, 123]) # savings in caps (lol)
+y = np.log(y) # log transform
+
+def mse(y, ypred):
+    return sum((y[i] - ypred[i]) ** 2 for i in range(len(y))) / len(y)
+
+m = 0
+b = 0
+
+eta = 0.00001
+epochs = 100000
+
+for epoch in range(epochs):
+    ypred = m * x + b
+    dm = (-2 / len(x)) * sum(x * (y - ypred))
+    db = (-2 / len(x)) * sum(y - ypred)
+    m = m - eta * dm
+    b = b - eta * db
+    print(f"epoch {epoch + 1}: m = {m}, b = {b}, mse = {mse(y, ypred)}")
+
+print(f"m: {m}, b: {b}, mse: {mse(y, ypred)}")
+
+xPred = np.array([9, 10, 11, 12]) # Sep to Dec
+yPred = m * xPred + b
+
+for month, savings in zip(xPred, yPred):
+    print(f"month {month}: {savings}")
+
+plt.figure(figsize=(12, 12))
+plt.plot(x, y, "ro", label="actual")
+plt.plot(xPred, yPred, "bo", label="predicted")
+plt.plot(x, m * x + b, label="regression line")
+for i in range(len(x)):
+    plt.plot([x[i], x[i]], [y[i], m * x[i] + b], color="black", linestyle="dashed", label="error")
+plt.title("Mark's savings")
+plt.xlabel("month")
+plt.ylabel("savings")
+plt.grid()
+plt.legend()
+plt.show()
