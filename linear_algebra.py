@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 from PIL import Image
 from sklearn.datasets import load_iris
 from sklearn.preprocessing import StandardScaler
+import mplcyberpunk
 
 # just the bare basics
 
@@ -301,7 +302,7 @@ m = 0
 b = 0
 
 eta = 0.00001
-epochs = 100000
+epochs = 10000
 
 for epoch in range(epochs):
     ypred = m * x + b
@@ -330,4 +331,150 @@ plt.xlabel("month")
 plt.ylabel("savings")
 plt.grid()
 plt.legend()
+
+
+# logistic regression
+# sigmoid
+def sigmoid(x):
+    return 1 / (1 + np.exp(-x))
+
+def J(y, ypred): # cross entropy
+    epsilon = 1e-15
+    ypred = np.clip(ypred, epsilon, 1 - epsilon)
+    return (-1 / len(y)) * sum(y * np.log(ypred) + (1 - y) * np.log(1 - ypred))
+
+def dJ(ytrue, ypred):
+    return ypred - ytrue
+
+# Mark's frequency of intermingling with Aurora
+x = np.array([[1], [2], [3], [4], [5], [6], [7], [8], [9], [10], [11], [12]]) # Jan to Dec
+y = np.array([0, 1, 0, 0, 0, 1, 1, 1, 0, 0, 1, 0]) # 0 means no intermingling, 1 means intermingling (she wanted to try at first, but then decided against it, up until July when she decided to try again (LOL))
+
+w = np.zeros((1, 1))
+b = 0
+
+eta = 0.01
+epochs = 10000
+
+for epoch in range(epochs):
+    z = np.dot(x, w) + b
+    ypred = sigmoid(z).flatten()
+
+    loss = J(y, ypred)
+
+    grad = dJ(y, ypred)
+    dw = np.dot(x.T, grad) / len(y) # derivative of loss with respect to w
+    db = np.mean(grad) # derivative of loss with respect to b
+
+    w -= eta * dw # update w
+    b -= eta * db # update b
+
+    if epoch % 1000 == 0:
+        print(f"epoch {epoch + 1}: w = {w}, b = {b}, loss = {loss}")
+
+print(f"final loss: {loss}")
+
+xTest = np.array([[i] for i in range(1, 25)])
+yTest = sigmoid(np.dot(xTest, w) + b)
+yClass = (yTest >= 0.5).astype(int) # convert to 0 or 1
+
+plt.style.use("cyberpunk")
+plt.figure(figsize=(12, 8))
+plt.scatter(x, y, color="yellow", label="Actual intermingling")
+plt.plot(xTest, yTest, color="magenta", linestyle="dashed", label="Predicted probability of intermingling")
+for i in range(len(xTest)):
+    if yClass[i] == 1:
+        plt.scatter(xTest[i], yClass[i], color="blue", label="Predicted intermingling bool")
+    else:
+        plt.scatter(xTest[i], yClass[i], color="red", label="Predicted intermingling bool")
+plt.title("Mark's intermingling with Aurora over two years", fontsize=16)
+plt.xlabel("Month", fontsize=14)
+plt.ylabel("Intermingling (bool)", fontsize=14)
+plt.xticks(np.arange(1, 25, 1), ["Jan '24", "Feb '24", "Mar '24", "Apr '24", "May '24", "Jun '24", "Jul '24", "Aug '24", "Sep '24", "Oct '24", "Nov '24", "Dec '24", "Jan '25", "Feb '25", "Mar '25", "Apr '25", "May '25", "Jun '25", "Jul '25", "Aug '25", "Sep '25", "Oct '25", "Nov '25", "Dec '25"], fontsize=5)
+plt.yticks([0, 1], ["No", "Yes"])
+plt.grid(True)
+plt.legend(loc="center left", fontsize=8)
+mplcyberpunk.add_glow_effects()
 plt.show()
+
+
+# L1 and L2 reg
+
+
+
+# SVM
+# Mark and Aurora's relationship
+# Mark's daily frequency of intermingling with Aurora during 2023, daily
+x = np.array([[i] for i in range(1, 366)]) # 1 to 365
+y = np.random.randint(0, 2, (365, 1)) # 0 or 1 for each day
+
+class SVM: # support vector machine
+    def __init__(self, epochs, eta, lambda_): # lambda is a reserved keyword so I used lambda_
+        self.epochs = epochs
+        self.eta = eta
+        self.lambda_ = lambda_
+        self.b = 0
+
+    def hinge(self, y, ypred):
+        return max(0, 1 - y * ypred)
+
+    def rbf(self, x, y, gamma=0.1):
+        return np.exp(-gamma * np.linalg.norm(x - y) ** 2)
+
+    def fit(self, x, y): # train
+        obsCount, featureCount = x.shape # 365, 1 (one feature, which is the day (not ideal, but it's just an example. in reality, you'd have more features))
+
+        y_ = np.where(y <= 0, -1, 1) # convert 0 to -1
+
+        alphas = np.zeros(obsCount) # 365
+
+        for epoch in range(self.epochs):
+            for i in range(obsCount):
+                x_i, y_i = x[i], y_[i] # get the i-th (current) observation
+
+                decision = sum(alphas[j] * y_[j] * self.rbf(x_i, x[j]) for j in range(obsCount)) - self.b # decision boundary
+
+                if y_i * decision < 1:
+                    alphas[i] += self.eta * (1 - y_i * decision)
+                    self.b += self.eta * y_i
+                else:
+                    alphas[i] -= self.eta * 2 * self.lambda_ * alphas[i]
+
+            print(f"epoch {epoch + 1}: b = {self.b}")
+
+            self.supportVectors = x[alphas > 0]
+            self.supportAlphas = alphas[alphas > 0]
+            self.supportLabels = y_[alphas > 0]
+
+    def predict(self, x):
+        decision = sum(self.supportAlphas[i] * self.supportLabels[i] * self.rbf(x, self.supportVectors[i]) for i in range(len(self.supportVectors))) - self.b
+        return np.sign(decision)
+
+
+svm = SVM(epochs=10, eta=0.01, lambda_=0.01)
+svm.fit(x, y)
+
+xPred = np.array([[i] for i in range(366, 731)]) # (365, 1)
+yPred = np.array([svm.predict(np.array([x])) for x in xPred]) # (365, 1)
+yPred = np.where(yPred < 0, 0, 1) # convert -1 to 0
+
+deltaIdx = np.where(np.diff(yPred.ravel()) != 0)[0]
+deltas = xPred[deltaIdx + 1]
+
+plt.style.use("cyberpunk")
+plt.figure(figsize=(12, 8))
+
+plt.scatter(x, y, color="yellow", label="Actual intermingling")
+plt.scatter(xPred, yPred, color="magenta", label="Predicted intermingling")
+plt.scatter(svm.supportVectors, np.where(svm.supportLabels < 0, 0, 1), color="red", label="Support vectors", edgecolors="black", s=100)
+for day in deltas:
+    plt.axvline(day, color="cyan", linestyle="dashed", label="Change in intermingling" if day == deltas[0] else "")
+plt.title("Mark and Aurora's intermingling", fontsize=16)
+plt.xlabel("Day", fontsize=14)
+plt.ylabel("Intermingling (bool)", fontsize=14)
+plt.legend(loc="center left", fontsize=8)
+plt.ylim(-0.1, 1.1)
+plt.show()
+
+
+# 
